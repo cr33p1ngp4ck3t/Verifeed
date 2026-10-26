@@ -1,0 +1,9 @@
+**
+!package.json
+!server/
+!server/**
+!web/
+!web/**
+!extension/
+!extension/shared/
+!extension/shared/**

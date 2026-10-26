@@ -3,8 +3,8 @@ import assert from 'node:assert/strict';
 import { get } from 'node:http';
 import { makeServer } from '../server/index.js';
 
-async function withServer(fn) {
-  const server = makeServer(); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+async function withServer(fn, config = {}) {
+  const server = makeServer(config); await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   try { await fn(`http://127.0.0.1:${server.address().port}`); } finally { await new Promise(resolve => server.close(resolve)); }
 }
 test('serves the app but never env, source, or traversal targets', () => withServer(async base => {
@@ -29,3 +29,22 @@ test('status exposes setup state without exposing credentials', () => withServer
   const response = await fetch(`${base}/api/analyze`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: 'Please check this message.' }) });
   assert.equal(response.status, 503); assert.equal((await response.json()).code, 'AI_NOT_CONFIGURED');
 }));
+
+test('request logs report failures without submitted content, queries, or draft IDs', async () => {
+  const records = [];
+  await withServer(async base => {
+    const response = await fetch(`${base}/api/drafts?secret=PRIVATE_QUERY`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer PRIVATE_TOKEN' },
+      body: JSON.stringify({ text: 'PRIVATE_MESSAGE', links: [], files: [] }),
+    });
+    const { id } = await response.json();
+    await fetch(`${base}/api/drafts/${id}`);
+    await fetch(`${base}/PRIVATE_PATH`);
+    assert.ok(records.some(record => record.route === '/api/drafts' && record.status === 201));
+    assert.ok(records.some(record => record.route === '/api/drafts/:id' && record.status === 200));
+    assert.ok(records.some(record => record.route === 'other' && record.status === 404 && record.level === 'warn'));
+    assert.ok(records.every(record => Number.isFinite(record.durationMs) && record.durationMs >= 0));
+    assert.doesNotMatch(JSON.stringify(records), /PRIVATE_QUERY|PRIVATE_TOKEN|PRIVATE_MESSAGE|PRIVATE_PATH/);
+    assert.ok(!JSON.stringify(records).includes(id));
+  }, { log: record => records.push(record) });
+});

@@ -9,6 +9,26 @@ async function serverTest(fn, config = {}) {
   try { await fn(`http://127.0.0.1:${server.address().port}`); } finally { await new Promise(resolve => server.close(resolve)); }
 }
 const post = (base, path, body, headers = {}) => fetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+test('a fresh extension connects to the local studio and keeps saved server choices', async () => {
+  let saved = {};
+  globalThis.chrome = { storage: { local: { get: async () => saved }, session: { get: async () => ({}) } } };
+  try {
+    assert.deepEqual(await getBackend(), { url: 'http://127.0.0.1:4317', token: '' });
+    saved = { backendUrl: 'http://127.0.0.1:4318' };
+    assert.equal((await getBackend()).url, saved.backendUrl);
+  } finally { delete globalThis.chrome; }
+});
+
+test('health reports liveness without credentials or provider access', () => serverTest(async base => {
+  const response = await fetch(`${base}/api/health`);
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.deepEqual(Object.keys(body).sort(), ['status', 'uptime']);
+  assert.equal(body.status, 'ok');
+  assert.ok(Number.isFinite(body.uptime) && body.uptime >= 0);
+  assert.equal((await fetch(`${base}/api/health`, { headers: { Origin: 'https://evil.example' } })).status, 403);
+}));
+
 test('backend addresses allow HTTPS and local SSH tunnels; reject credentials and public HTTP', () => {
   assert.equal(normalizeBackend(' https://verifeed.example.com/ '), 'https://verifeed.example.com');
   assert.equal(normalizeBackend('http://127.0.0.1:4318'), 'http://127.0.0.1:4318');

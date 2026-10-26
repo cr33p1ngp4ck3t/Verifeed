@@ -73,7 +73,7 @@ export async function prepareFile(file) {
       result.notes.push('Two sampled frames were checked; events between frames may be missed.');
     }
     try { result.audio = await prepareAudio(file); }
-    catch (error) { if (kind === 'audio') throw new Error('This audio could not be decoded. Try a WAV or MP3 file.'); result.notes.push('The video audio could not be extracted. Only sampled frames will be checked.'); }
+    catch (error) { if (kind === 'audio') throw new Error('This audio could not be decoded. Try a WAV or MP3 file.', { cause: error }); result.notes.push('The video audio could not be extracted. Only sampled frames will be checked.'); }
     return result;
   } finally { element.removeAttribute('src'); element.load(); URL.revokeObjectURL(objectUrl); }
 }

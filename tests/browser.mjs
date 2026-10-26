@@ -80,16 +80,7 @@ try {
   assert.match(await page.locator('.coverage').textContent(), /seconds of speech/);
   passed('Video checks use two actual frames and extracted speech');
 
-  const silentVideo = await page.evaluate(async () => {
-    const canvas = document.createElement('canvas'); canvas.width = 400; canvas.height = 240;
-    const drawing = canvas.getContext('2d'), stream = canvas.captureStream(8);
-    const recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' }), chunks = [];
-    const complete = new Promise(resolve => { recorder.ondataavailable = event => chunks.push(event.data); recorder.onstop = resolve; });
-    recorder.start(); const interval = setInterval(() => { drawing.fillStyle = '#244c3c'; drawing.fillRect(0, 0, 400, 240); drawing.fillStyle = '#fff'; drawing.font = '24px Arial'; drawing.fillText('A silent practice video', 30, 120); }, 100);
-    await new Promise(resolve => setTimeout(resolve, 1200)); recorder.stop(); await complete; clearInterval(interval); stream.getTracks().forEach(track => track.stop());
-    return Array.from(new Uint8Array(await new Blob(chunks, { type: 'video/webm' }).arrayBuffer()));
-  });
-  await page.locator('#file').setInputFiles({ name: 'silent.webm', mimeType: 'video/webm', buffer: Buffer.from(silentVideo) });
+  await page.locator('#file').setInputFiles('tests/fixtures/silent.webm');
   await page.waitForFunction(() => document.querySelector('.media-card')?.textContent.includes('audio could not be extracted'));
   const beforeSilent = providerCalls.length; await page.locator('#ai-check').click(); await page.waitForSelector('.risk-high');
   assert.equal(providerCalls.length, beforeSilent + 2); assert.doesNotMatch(await page.locator('.coverage').textContent(), /seconds of speech/);

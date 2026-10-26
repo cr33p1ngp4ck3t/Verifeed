@@ -13,7 +13,7 @@ try {
   const worker = context.serviceWorkers()[0] || await context.waitForEvent('serviceworker');
   const id = new URL(worker.url()).host;
   const popup = await context.newPage(); await popup.goto(`chrome-extension://${id}/popup.html`);
-  await popup.locator('.connection summary').click(); await popup.locator('#backend-url').fill(base); await popup.locator('#backend-code').fill(accessToken); await popup.locator('#save-backend').click();
+  await popup.getByText('Server connection', { exact: true }).click(); await popup.locator('#backend-url').fill(base); await popup.locator('#backend-code').fill(accessToken); await popup.locator('#save-backend').click();
   await popup.waitForFunction(() => document.querySelector('#connection-status').textContent.startsWith('Connected.'));
   assert.equal(await popup.locator('#practice').getAttribute('href'), `${base}/demo`);
   const created = context.waitForEvent('page'); await popup.locator('#studio').click(); const studio = await created;

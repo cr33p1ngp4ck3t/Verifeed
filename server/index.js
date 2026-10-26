@@ -17,6 +17,13 @@ export function makeServer(config = {}, fetcher = fetch) {
   draftSweep.unref();
   const allowedExtension = config.extensionId || '';
   const server = createServer(async (req, res) => {
+    const started = performance.now();
+    let route = 'other';
+    if (config.log) res.once('finish', () => config.log({
+      level: res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info',
+      event: 'request', route, status: res.statusCode,
+      durationMs: Math.round(performance.now() - started),
+    }));
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Cache-Control', 'no-store');
@@ -33,6 +40,10 @@ export function makeServer(config = {}, fetcher = fetch) {
       if (origin) { res.setHeader('Access-Control-Allow-Origin', origin); res.setHeader('Vary', 'Origin'); }
       if (req.method === 'OPTIONS') { res.writeHead(204, { 'Access-Control-Allow-Methods': 'GET, POST, OPTIONS', 'Access-Control-Allow-Headers': 'Content-Type, Authorization' }); res.end(); return; }
       const url = new URL(req.url, `http://${host}`);
+      // Log only known route names; paths, queries and drafts can contain private content.
+      if (['/api/health', '/api/status', '/api/analyze', '/api/drafts', '/api/session', '/api/tickets'].includes(url.pathname)) route = url.pathname;
+      else if (url.pathname.startsWith('/api/drafts/')) route = '/api/drafts/:id';
+      if (url.pathname === '/api/health' && req.method === 'GET') return json(200, { status: 'ok', uptime: process.uptime() });
       if (url.pathname === '/api/status' && req.method === 'GET') return json(200, { ...(access.authenticated(req) ? analyzer.status() : {}), requiresAccess: access.required, authenticated: access.authenticated(req) });
       if (url.pathname.startsWith('/api/') && url.pathname !== '/api/session') access.requireAccess(req);
       if (url.pathname.startsWith('/api/drafts/') && req.method === 'GET') {
@@ -88,14 +99,14 @@ export function makeServer(config = {}, fetcher = fetch) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const port = Number(process.env.PORT || DEFAULT_PORT), host = process.env.HOST || '127.0.0.1';
+  const container = process.argv.includes('--container');
+  const port = Number(process.env.PORT || DEFAULT_PORT), host = container ? '0.0.0.0' : process.env.HOST || '127.0.0.1';
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error('PORT must be between 1 and 65535.');
-  if (!['127.0.0.1', 'localhost', '::1'].includes(host) && !process.env.PUBLIC_URL) throw new Error('Set PUBLIC_URL and VERIFEED_ACCESS_TOKEN before binding a public interface.');
-  const server = makeServer({ apiKey: process.env.GROQ_API_KEY, textModel: process.env.GROQ_TEXT_MODEL, visionModel: process.env.GROQ_VISION_MODEL, audioModel: process.env.GROQ_AUDIO_MODEL, maxDaily: process.env.MAX_AI_CHECKS_PER_DAY, maxMinute: process.env.MAX_AI_CHECKS_PER_MINUTE, maxTokens: process.env.MAX_AI_TOKENS_PER_DAY, extensionId: process.env.ALLOWED_EXTENSION_ID, publicUrl: process.env.PUBLIC_URL, accessToken: process.env.VERIFEED_ACCESS_TOKEN });
+  if (!container && !['127.0.0.1', 'localhost', '::1'].includes(host) && !process.env.PUBLIC_URL) throw new Error('Set PUBLIC_URL and VERIFEED_ACCESS_TOKEN before binding a public interface.');
+  const log = record => console.log(JSON.stringify({ timestamp: new Date().toISOString(), ...record }));
+  const server = makeServer({ log, apiKey: process.env.GROQ_API_KEY, textModel: process.env.GROQ_TEXT_MODEL, visionModel: process.env.GROQ_VISION_MODEL, audioModel: process.env.GROQ_AUDIO_MODEL, maxDaily: process.env.MAX_AI_CHECKS_PER_DAY, maxMinute: process.env.MAX_AI_CHECKS_PER_MINUTE, maxTokens: process.env.MAX_AI_TOKENS_PER_DAY, extensionId: process.env.ALLOWED_EXTENSION_ID, publicUrl: process.env.PUBLIC_URL, accessToken: process.env.VERIFEED_ACCESS_TOKEN });
   server.listen(port, host, () => {
     const address = process.env.PUBLIC_URL || `http://127.0.0.1:${port}`;
-    console.log(`Verifeed studio: ${address}`);
-    console.log(`Practice feed: ${address}/demo`);
-    console.log(process.env.GROQ_API_KEY ? 'AI analysis configured. Local scanning remains free.' : 'Local mode ready. Add GROQ_API_KEY to .env to enable AI checks.');
+    log({ level: 'info', event: 'listening', host, port, studio: address, practiceFeed: `${address}/demo`, aiConfigured: Boolean(process.env.GROQ_API_KEY?.trim()) });
   });
 }

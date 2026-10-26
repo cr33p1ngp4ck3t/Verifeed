@@ -1,0 +1,20 @@
+services:
+  verifeed:
+    build: .
+    ports:
+      - "127.0.0.1:4317:4317"
+    environment:
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_TEXT_MODEL: ${GROQ_TEXT_MODEL:-openai/gpt-oss-120b}
+      GROQ_VISION_MODEL: ${GROQ_VISION_MODEL:-qwen/qwen3.6-27b}
+      GROQ_AUDIO_MODEL: ${GROQ_AUDIO_MODEL:-whisper-large-v3-turbo}
+      MAX_AI_CHECKS_PER_DAY: ${MAX_AI_CHECKS_PER_DAY:-80}
+      MAX_AI_CHECKS_PER_MINUTE: ${MAX_AI_CHECKS_PER_MINUTE:-4}
+      MAX_AI_TOKENS_PER_DAY: ${MAX_AI_TOKENS_PER_DAY:-100000}
+      ALLOWED_EXTENSION_ID: ${ALLOWED_EXTENSION_ID:-}
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    init: true

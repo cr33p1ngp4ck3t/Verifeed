@@ -1,4 +1,4 @@
-export const DEFAULT_BACKEND = 'http://127.0.0.1:4318';
+export const DEFAULT_BACKEND = 'http://127.0.0.1:4317';
 export function normalizeBackend(raw = DEFAULT_BACKEND) {
   let url;
   try { url = new URL(raw.trim()); } catch { throw new Error('Enter a complete backend address, such as https://verifeed.example.com'); }

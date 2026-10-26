@@ -5,20 +5,27 @@
   "type": "module",
   "description": "An accessible, on-demand digital scam shield for text, images, audio and video.",
   "engines": {
-    "node": ">=22"
+    "node": ">=22.13"
   },
   "scripts": {
     "start": "node --env-file-if-exists=.env server/index.js",
     "dev": "node --watch --watch-path=.env --watch-path=server --env-file-if-exists=.env server/index.js",
     "test": "node --test tests/*.test.js",
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=server/**/*.js --test-coverage-include=extension/**/*.js --test-coverage-lines=90 --test-coverage-branches=80 --test-coverage-functions=80 tests/*.test.js",
+    "test:ui": "npm run test:local && npm run test:browser && npm run test:extension && npm run test:remote && npm run test:panel && npm run test:website",
+    "test:local": "node tests/local-setup.mjs",
     "test:browser": "node tests/browser.mjs",
     "test:extension": "node tests/extension-setup.mjs",
     "test:remote": "node tests/remote-connection.mjs",
     "test:panel": "node tests/panel.mjs",
     "test:website": "node tests/website-guard.mjs",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "lint": "eslint . --max-warnings=0"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "eslint": "10.13.0",
+    "globals": "17.13.0",
     "playwright": "^1.63.0"
   }
 }
